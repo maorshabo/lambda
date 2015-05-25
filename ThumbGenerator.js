@@ -21,9 +21,9 @@ exports.handler = function(event, context) {
         decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
     var dstKey    = "resized-" + srcKey;
 
-    var tumbsDirectory = 'thumbs/';
     var jsonFile = 'result.json';
-    var newImageObj = {};
+    var newJsonData = {};
+    var existsJsonData = [];
     // Sanity check: validate that source and destination are different buckets.
     /*if (srcBucket == dstBucket) {
         console.error("Destination bucket must not match source bucket.");
@@ -33,7 +33,8 @@ exports.handler = function(event, context) {
     // check if the image is not the generated thumb
     // this check is to prevent endless loop of the script
     // make it to run only on uploaded new images and not on the thumbs pictures
-    if (!srcKey.search('resized')) {
+    console.log('Reading file ' + srcKey);
+    if (srcKey.search('resized') === -1) {
 
         // Infer the image type.
         var typeMatch = srcKey.match(/\.([^.]*)$/);
@@ -81,46 +82,65 @@ exports.handler = function(event, context) {
                 },
                 function upload(contentType, data, next) {
                     // Stream the transformed image to a different S3 bucket.
+                    console.log('Uploading thumb file ' + dstKey);
                     s3.putObject({
                             Bucket: srcBucket,
                             Key: dstKey,
                             Body: data,
                             ContentType: contentType
-                        },next);
+                        },function(err,data) {
+                            next(null,err,data);
+                        }
+                    );
 
-                }
-                /*function getJsonFile(next) {
+                },
+                function getJsonFile(err,data,next) {
+                    console.log('Search for result.json');
                     // try to get json file
                     s3.getObject({
                             Bucket: srcBucket,
                             Key: jsonFile
-                        },next);
+                        },function(err,data) {
+                            next(null,err,data);
+                        }
+                    );
                 },
-                function updateJsonFile(response, next) {
-                    newImageObj[srcKey] = {
-                        thumb:dstKey
-                    };
-                    // if the json file exists
-                    if (response.Body) {
-                        // append to the exists json file
-                        response.Body.push(newImageObj);
-                        // save updated json file
-                        s3.putObject({
-                            Bucket: srcBucket,
-                            Key: response,
-                            Body: jsonFile.Body,
-                            ContentType: 'application/json'
-                        },next);
+                function(err, data) {
+                    console.log('test');
+                    if (err) {
+                        console.log('results.json NOT FOUND!, creating one');
                     }
                     else {
-                        s3.putObject({
-                            Bucket: srcBucket,
-                            Key: 'result.json',
-                            Body: newImageObj,
-                            ContentType: 'application/json'
-                        },next);
+                        // if the json file exists
+                        console.log('results.json FOUND!, appending new thumb image');
+                        existsJsonData = data.Body;
+                        // print json contents
+                        console.log('exists json data: ' + existsJsonData);
+
                     }
-                }*/
+                    // append to the exists json file
+                    existsJsonData.push({
+                            image: srcKey,
+                            thumb: dstKey
+                        }
+                    );
+                    console.log('new json data: ' + existsJsonData);
+                    existsJsonData = JSON.stringify(existsJsonData);
+                    console.log('new parsed json data: ' + existsJsonData);
+                    // save updated json file
+                    s3.putObject({
+                        Bucket: srcBucket,
+                        Key: 'result.json',
+                        Body: existsJsonData,
+                        ContentType: 'application/json'
+                    },function(err,data) {
+                        if (err) console.log(err,err.stack);
+                        else {
+                            console.log('result.json created, done!');
+                            context.done();
+                        }
+                    });
+                }
             ], function (err) {
                 if (err) {
                     console.error(
@@ -138,5 +158,9 @@ exports.handler = function(event, context) {
                 context.done();
             }
         );
+    }
+    else {
+        console.log('I\'m not resizing thumb images');
+        context.done();
     }
 };
