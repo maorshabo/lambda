@@ -19,9 +19,9 @@ exports.handler = function(event, context) {
     // Object key may have spaces or unicode non-ASCII characters.
     var srcKey    =
         decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
-    var dstKey    = "resized-" + srcKey;
+    var dstKey    = "photos/resized-" + srcKey;
 
-    var jsonFile = 'result.json';
+    var jsonFile = 'photos/result.json';
     var newJsonData = {};
     var existsJsonData = [];
     // Sanity check: validate that source and destination are different buckets.
@@ -34,7 +34,7 @@ exports.handler = function(event, context) {
     // this check is to prevent endless loop of the script
     // make it to run only on uploaded new images and not on the thumbs pictures
     console.log('Reading file ' + srcKey);
-    if (srcKey.search('resized') === -1) {
+    if (srcKey.search('resized') === -1 && srcKey.indexOf('photos') > -1) {
 
         // Infer the image type.
         var typeMatch = srcKey.match(/\.([^.]*)$/);
@@ -130,7 +130,7 @@ exports.handler = function(event, context) {
                     // save updated json file
                     s3.putObject({
                         Bucket: srcBucket,
-                        Key: 'result.json',
+                        Key: jsonFile,
                         Body: existsJsonData,
                         ContentType: 'application/json'
                     },function(err,data) {
@@ -160,7 +160,7 @@ exports.handler = function(event, context) {
         );
     }
     else {
-        console.log('I\'m not resizing thumb images');
+        console.log('I\'m not resizing thumb images or photos that are not in /photos directory');
         context.done();
     }
 };
