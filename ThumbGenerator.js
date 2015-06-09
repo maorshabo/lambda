@@ -40,11 +40,13 @@ exports.handler = function(event, context) {
         var typeMatch = srcKey.match(/\.([^.]*)$/);
         if (!typeMatch) {
             console.error('unable to infer image type for key ' + srcKey);
+            context.done();
             return;
         }
-        var imageType = typeMatch[1];
+        var imageType = typeMatch[1].toLowerCase();
         if (imageType != "jpg" && imageType != "png") {
             console.log('skipping non-image ' + srcKey);
+            context.done();
             return;
         }
 
