@@ -113,7 +113,7 @@ exports.handler = function(event, context) {
                     else {
                         // if the json file exists
                         console.log('results.json FOUND!, appending new thumb image');
-                        existsJsonData = data.Body;
+                        existsJsonData = JSON.parse(data.Body);
                         // print json contents
                         console.log('exists json data: ' + existsJsonData);
 
